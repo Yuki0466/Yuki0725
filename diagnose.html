@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>完整诊断工具</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        .warning { background-color: #fff3cd; }
+        .info { background-color: #d1ecf1; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; max-height: 300px; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        .result { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Supabase 数据库完整诊断</h1>
+    
+    <div class="test-section info">
+        <h3>📋 诊断步骤</h3>
+        <ol>
+            <li>检查基础连接</li>
+            <li>检查表是否存在</li>
+            <li>检查数据权限</li>
+            <li>检查数据内容</li>
+            <li>测试与主应用相同的数据加载逻辑</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <button onclick="runAllTests()">🚀 运行所有测试</button>
+        <button onclick="clearResults()">🗑️ 清空结果</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://nysrxrlwrlcfrbhutwtd.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55c3J4cmx3cmxjZnJiaHV0d3RkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MTQ4MzgsImV4cCI6MjA3OTM5MDgzOH0.598J9S18JqKaqYP5e1lR_oKtly0pyhCzZ3FRJS0rwRI';
+        
+        const { createClient } = window.supabase;
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const results = document.getElementById('results');
+
+        function addResult(title, message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test-section ${type}`;
+            div.innerHTML = `
+                <h3>${title}</h3>
+                <div class="result">${message}</div>
+            `;
+            results.appendChild(div);
+        }
+
+        function addJsonResult(title, data, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test-section ${type}`;
+            div.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            results.appendChild(div);
+        }
+
+        async function testConnection() {
+            try {
+                addResult('🔌 测试 1: 基础连接', '正在测试 Supabase 连接...', 'info');
+                
+                // 测试基础连接 - 尝试获取版本信息
+                const { data, error } = await supabase
+                    .rpc('version'); // 这可能失败，但能测试连接
+
+                if (error && error.code !== 'PGRST116') { // PGRST116 是函数不存在的错误，这表示连接成功
+                    throw error;
+                }
+                
+                addResult('✅ 测试 1: 基础连接', '连接成功！Supabase 服务可访问', 'success');
+            } catch (error) {
+                addResult('❌ 测试 1: 基础连接', `连接失败: ${error.message}`, 'error');
+                return false;
+            }
+            return true;
+        }
+
+        async function testTablesExist() {
+            try {
+                addResult('📊 测试 2: 检查表结构', '检查 products 表是否存在...', 'info');
+                
+                // 测试表是否存在
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('count')
+                    .limit(1);
+
+                if (error) {
+                    if (error.code === 'PGRST116') {
+                        addResult('❌ 测试 2: 检查表结构', 'products 表不存在！请执行 SQL 脚本创建表', 'error');
+                        return false;
+                    } else {
+                        addResult('❌ 测试 2: 检查表结构', `表访问错误: ${error.message}`, 'error');
+                        return false;
+                    }
+                }
+                
+                addResult('✅ 测试 2: 检查表结构', 'products 表存在且可访问', 'success');
+
+                // 检查分类表
+                const { data: catData, error: catError } = await supabase
+                    .from('categories')
+                    .select('count')
+                    .limit(1);
+
+                if (catError) {
+                    addResult('⚠️ 测试 2: 检查表结构', `categories 表访问问题: ${catError.message}`, 'warning');
+                } else {
+                    addResult('✅ 测试 2: 检查表结构', 'categories 表也存在且可访问', 'success');
+                }
+                
+                return true;
+            } catch (error) {
+                addResult('❌ 测试 2: 检查表结构', `表检查异常: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function testPermissions() {
+            try {
+                addResult('🔐 测试 3: 检查权限策略', '检查 RLS 策略...', 'info');
+                
+                // 测试是否有读取权限
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('*')
+                    .limit(1);
+
+                if (error) {
+                    addResult('❌ 测试 3: 检查权限策略', `权限被拒绝: ${error.message}`, 'error');
+                    addResult('💡 测试 3: 检查权限策略', '建议检查 Supabase 控制台中的 RLS 策略设置', 'warning');
+                    return false;
+                }
+                
+                addResult('✅ 测试 3: 检查权限策略', '有读取权限，RLS 策略配置正确', 'success');
+                return true;
+            } catch (error) {
+                addResult('❌ 测试 3: 检查权限策略', `权限检查异常: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function testDataContent() {
+            try {
+                addResult('📋 测试 4: 检查数据内容', '查询实际数据...', 'info');
+                
+                // 查询产品数据
+                const { data: products, error: productError } = await supabase
+                    .from('products')
+                    .select('*')
+                    .limit(5);
+
+                if (productError) {
+                    addResult('❌ 测试 4: 检查数据内容', `产品数据查询失败: ${productError.message}`, 'error');
+                    return false;
+                }
+
+                if (!products || products.length === 0) {
+                    addResult('⚠️ 测试 4: 检查数据内容', '产品数据为空！请执行 init-data.sql 插入示例数据', 'warning');
+                    return false;
+                }
+
+                addResult(`✅ 测试 4: 检查数据内容`, `找到 ${products.length} 条产品数据`, 'success');
+                addJsonResult('产品数据样例', products);
+
+                // 查询分类数据
+                const { data: categories, error: catError } = await supabase
+                    .from('categories')
+                    .select('*')
+                    .limit(5);
+
+                if (catError) {
+                    addResult('⚠️ 测试 4: 检查数据内容', `分类数据查询问题: ${catError.message}`, 'warning');
+                } else {
+                    addResult(`✅ 测试 4: 检查数据内容`, `找到 ${categories ? categories.length : 0} 条分类数据`, 'success');
+                    if (categories && categories.length > 0) {
+                        addJsonResult('分类数据样例', categories);
+                    }
+                }
+                
+                return true;
+            } catch (error) {
+                addResult('❌ 测试 4: 检查数据内容', `数据检查异常: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function testAppLogic() {
+            try {
+                addResult('🎯 测试 5: 模拟主应用逻辑', '测试与主应用相同的数据加载代码...', 'info');
+                
+                // 复制主应用中的 exact 代码逻辑
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('*')
+                    .eq('featured', true)
+                    .limit(6);
+
+                console.log('主应用逻辑测试 - Supabase 查询结果:', { data, error });
+
+                if (error) {
+                    addResult('❌ 测试 5: 模拟主应用逻辑', `精选产品查询失败: ${error.message}`, 'error');
+                    addResult('💡 测试 5: 模拟主应用逻辑', '这就是主应用显示模拟数据的原因！', 'error');
+                    return false;
+                }
+
+                if (!data || data.length === 0) {
+                    addResult('⚠️ 测试 5: 模拟主应用逻辑', '没有精选产品数据！检查是否有 featured=true 的产品', 'warning');
+                    addResult('💡 测试 5: 模拟主应用逻辑', '这就是主应用显示模拟数据的原因 - 数据为空', 'warning');
+                    
+                    // 尝试查询所有产品
+                    const { data: allProducts, error: allError } = await supabase
+                        .from('products')
+                        .select('*')
+                        .limit(3);
+                    
+                    if (!allError && allProducts && allProducts.length > 0) {
+                        addResult('💡 测试 5: 模拟主应用逻辑', `但数据库中有 ${allProducts.length} 个产品，只是没有标记为精选`, 'info');
+                        addJsonResult('非精选产品样例', allProducts);
+                    }
+                    return false;
+                }
+
+                addResult(`✅ 测试 5: 模拟主应用逻辑`, `成功加载 ${data.length} 个精选产品！主应用应该能正常显示`, 'success');
+                addJsonResult('精选产品数据', data);
+                return true;
+                
+            } catch (error) {
+                addResult('❌ 测试 5: 模拟主应用逻辑', `主应用逻辑测试异常: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function runAllTests() {
+            clearResults();
+            addResult('🚀 开始完整诊断', '正在运行所有测试...', 'info');
+            
+            const results = [];
+            results.push(await testConnection());
+            results.push(await testTablesExist());
+            results.push(await testPermissions());
+            results.push(await testDataContent());
+            results.push(await testAppLogic());
+
+            const summary = results.every(r => r === true);
+            addResult(
+                summary ? '🎉 诊断完成' : '⚠️ 诊断发现问题', 
+                summary ? '所有测试通过！主应用应该能正常显示数据' : '发现问题，请查看上面的详细报告',
+                summary ? 'success' : 'warning'
+            );
+        }
+
+        function clearResults() {
+            results.innerHTML = '';
+        }
+
+        // 页面加载时自动运行测试
+        window.onload = () => {
+            setTimeout(runAllTests, 1000);
+        };
+    </script>
+</body>
+</html>

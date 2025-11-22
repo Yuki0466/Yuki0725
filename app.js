@@ -97,6 +97,8 @@ const HomePage = {
 
         onMounted(async () => {
             try {
+                console.log('🔄 开始加载精选产品...');
+                
                 // 从 Supabase 获取数据
                 const { data, error } = await supabase
                     .from('products')
@@ -104,21 +106,33 @@ const HomePage = {
                     .eq('featured', true)
                     .limit(6);
 
-                console.log('Supabase 查询结果:', { data, error });
+                console.log('📊 Supabase 精选产品查询结果:', { data, error });
 
                 if (error) {
-                    console.error('Supabase 错误:', error);
-                    // 只有在真正的连接错误时才使用模拟数据
+                    console.error('❌ Supabase 错误:', error);
                     featuredProducts.value = mockProducts.filter(p => p.featured);
                 } else if (data && data.length > 0) {
-                    console.log('使用真实数据:', data);
+                    console.log('✅ 使用真实精选产品数据:', data.length, '个产品');
                     featuredProducts.value = data;
                 } else {
-                    console.log('Supabase 返回空数据，使用模拟数据');
-                    featuredProducts.value = mockProducts.filter(p => p.featured);
+                    console.warn('⚠️ 没有精选产品，尝试加载普通产品...');
+                    
+                    // 如果没有精选产品，加载一些普通产品
+                    const { data: regularData, error: regularError } = await supabase
+                        .from('products')
+                        .select('*')
+                        .limit(6);
+                    
+                    if (!regularError && regularData && regularData.length > 0) {
+                        console.log('✅ 使用普通产品数据作为精选展示:', regularData.length, '个产品');
+                        featuredProducts.value = regularData;
+                    } else {
+                        console.warn('⚠️ 数据库中没有任何产品，使用模拟数据');
+                        featuredProducts.value = mockProducts.filter(p => p.featured);
+                    }
                 }
             } catch (error) {
-                console.error('加载产品时发生异常:', error);
+                console.error('❌ 加载产品时发生异常:', error);
                 featuredProducts.value = mockProducts.filter(p => p.featured);
             } finally {
                 loading.value = false;
