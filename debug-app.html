@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时调试 - 主应用</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .debug-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 400px;
+            max-height: 80vh;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            z-index: 9999;
+            overflow-y: auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .debug-content {
+            font-size: 12px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .debug-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .debug-close {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            color: #999;
+        }
+        main {
+            margin-right: 420px; /* 给调试面板留空间 */
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 调试面板 -->
+        <div class="debug-panel" id="debugPanel">
+            <span class="debug-close" onclick="toggleDebug()">×</span>
+            <div class="debug-title">🔍 实时调试信息</div>
+            <div id="debugContent" class="debug-content">
+                等待调试信息...
+            </div>
+        </div>
+
+        <!-- 主应用内容 -->
+        <nav class="navbar">
+            <div class="nav-container">
+                <div class="nav-brand">
+                    <router-link to="/">优选商城 (调试版)</router-link>
+                </div>
+                <div class="nav-menu">
+                    <router-link to="/" class="nav-link">首页</router-link>
+                    <router-link to="/products" class="nav-link">产品</router-link>
+                    <router-link to="/cart" class="nav-link">购物车</router-link>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <router-view></router-view>
+        </main>
+
+        <footer class="footer">
+            <div class="footer-content">
+                <p>&copy; 2024 优选商城. 保留所有权利.</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // 调试日志函数
+        let debugLogs = [];
+        
+        function debugLog(message, data = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            if (data) {
+                logEntry += '
+' + JSON.stringify(data, null, 2);
+            }
+            debugLogs.push(logEntry);
+            
+            // 保持最新的20条日志
+            if (debugLogs.length > 20) {
+                debugLogs = debugLogs.slice(-20);
+            }
+            
+            updateDebugPanel();
+        }
+
+        function updateDebugPanel() {
+            const debugContent = document.getElementById('debugContent');
+            if (debugContent) {
+                debugContent.textContent = debugLogs.join('
+
+---
+
+');
+                debugContent.scrollTop = debugContent.scrollHeight;
+            }
+        }
+
+        function toggleDebug() {
+            const panel = document.getElementById('debugPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // 初始化调试
+        debugLog('🚀 调试版本启动');
+
+        // Supabase 配置 - 与主应用相同
+        const SUPABASE_URL = 'https://nysrxrlwrlcfrbhutwtd.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55c3J4cmx3cmxjZnJiaHV0d3RkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MTQ4MzgsImV4cCI6MjA3OTM5MDgzOH0.598J9S18JqKaqYP5e1lR_oKtly0pyhCzZ3FRJS0rwRI';
+
+        const { createClient } = window.supabase;
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        debugLog('📡 Supabase 客户端创建', {
+            url: SUPABASE_URL,
+            keyExists: !!SUPABASE_ANON_KEY
+        });
+
+        // 模拟数据
+        const mockProducts = [
+            {
+                id: '1',
+                name: '智能手机 Pro Max',
+                description: '最新款智能手机，配备高清摄像头和强大处理器',
+                price: 4999.00,
+                category_name: '电子产品',
+                image_url: '',
+                stock: 50,
+                featured: true
+            },
+            {
+                id: '2',
+                name: '笔记本电脑 Ultra',
+                description: '轻薄便携的高性能笔记本电脑',
+                price: 7999.00,
+                category_name: '电子产品',
+                image_url: '',
+                stock: 30,
+                featured: true
+            }
+        ];
+
+        const mockCategories = [
+            { id: '1', name: '电子产品' },
+            { id: '2', name: '服装鞋包' }
+        ];
+
+        // 首页组件 - 增强调试
+        const HomePage = {
+            template: `
+                <div class="home">
+                    <div class="hero">
+                        <h1>欢迎来到优选商城 (调试版)</h1>
+                        <p>发现品质生活，享受购物乐趣</p>
+                        <router-link to="/products" class="btn btn-primary">开始购物</router-link>
+                    </div>
+                    
+                    <section class="featured-products">
+                        <h2>精选产品</h2>
+                        <div class="products-grid" v-if="featuredProducts.length > 0">
+                            <div v-for="product in featuredProducts" :key="product.id" class="product-card">
+                                <div class="product-image"></div>
+                                <div class="product-info">
+                                    <h3 class="product-title">{{ product.name }}</h3>
+                                    <p class="product-description">{{ product.description }}</p>
+                                    <div class="product-price">¥{{ product.price.toFixed(2) }}</div>
+                                    <router-link :to="'/product/' + product.id" class="btn btn-primary">查看详情</router-link>
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else class="loading">
+                            <p>{{ loading ? '加载精选产品中...' : '没有找到产品' }}</p>
+                        </div>
+                    </section>
+                </div>
+            `,
+            setup() {
+                const featuredProducts = ref([]);
+                const loading = ref(true);
+
+                debugLog('🏠 首页组件开始加载');
+
+                    onMounted(async () => {
+                        debugLog('🔄 onMounted 钩子被调用');
+                        debugLog('📍 当前路由: ' + window.location.pathname);
+                    debugLog('🔄 开始加载精选产品...');
+                    
+                    try {
+                        const { data, error } = await supabase
+                            .from('products')
+                            .select('*')
+                            .eq('featured', true)
+                            .limit(6);
+
+                        debugLog('📊 Supabase 查询结果', { data, error });
+
+                        if (error) {
+                            debugLog('❌ Supabase 错误', error.message);
+                            debugLog('🔄 使用模拟数据', '因为 Supabase 错误');
+                            featuredProducts.value = mockProducts.filter(p => p.featured);
+                        } else if (data && data.length > 0) {
+                            debugLog('✅ 使用真实数据', `找到 ${data.length} 个精选产品`);
+                            featuredProducts.value = data;
+                        } else {
+                            debugLog('⚠️ Supabase 返回空数据', '尝试加载普通产品');
+                            
+                            const { data: regularData, error: regularError } = await supabase
+                                .from('products')
+                                .select('*')
+                                .limit(6);
+                            
+                            debugLog('📊 普通产品查询结果', { data: regularData, error: regularError });
+                            
+                            if (!regularError && regularData && regularData.length > 0) {
+                                debugLog('✅ 使用普通产品数据', `找到 ${regularData.length} 个产品`);
+                                featuredProducts.value = regularData;
+                            } else {
+                                debugLog('⚠️ 使用模拟数据', '因为数据库中没有产品');
+                                featuredProducts.value = mockProducts.filter(p => p.featured);
+                            }
+                        }
+                    } catch (error) {
+                        debugLog('❌ 加载产品时发生异常', error.message);
+                        featuredProducts.value = mockProducts.filter(p => p.featured);
+                    } finally {
+                        loading.value = false;
+                        debugLog('✅ 首页加载完成', {
+                            产品数量: featuredProducts.value.length,
+                            是否加载: loading.value,
+                            数据源: featuredProducts.value[0]?.id.startsWith('mock') ? '模拟数据' : '真实数据'
+                        });
+                    }
+                });
+
+                return {
+                    featuredProducts,
+                    loading
+                };
+            }
+        };
+
+        // 创建路由和应用
+        const routes = [
+            { path: '/', component: HomePage }
+        ];
+
+        const router = VueRouter.createRouter({
+            history: VueRouter.createWebHistory(),
+            routes
+        });
+
+        const app = Vue.createApp({
+            setup() {
+                return {};
+            }
+        });
+
+        app.use(router);
+        app.mount('#app');
+
+        debugLog('✅ Vue 应用挂载完成');
+        
+        // 添加路由变化监听
+        router.afterEach(() => {
+            debugLog('🛣️ 路由变化到: ' + window.location.pathname);
+        });
+    </script>
+</body>
+</html>

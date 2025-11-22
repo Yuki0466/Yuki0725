@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>优选商城 - 品质生活从这里开始</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div id="app">
+        <nav class="navbar">
+            <div class="nav-container">
+                <div class="nav-brand">
+                    <router-link to="/">优选商城</router-link>
+                </div>
+                <div class="nav-menu">
+                    <router-link to="/" class="nav-link">首页</router-link>
+                    <router-link to="/products" class="nav-link">产品</router-link>
+                    <router-link to="/cart" class="nav-link">购物车</router-link>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <router-view></router-view>
+        </main>
+
+        <footer class="footer">
+            <div class="footer-content">
+                <p>&copy; 2024 优选商城. 保留所有权利.</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Supabase 配置
+        const SUPABASE_URL = 'https://nysrxrlwrlcfrbhutwtd.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55c3J4cmx3cmxjZnJiaHV0d3RkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MTQ4MzgsImV4cCI6MjA3OTM5MDgzOH0.598J9S18JqKaqYP5e1lR_oKtly0pyhCzZ3FRJS0rwRI';
+
+        // 创建 Supabase 客户端
+        const { createClient } = window.supabase;
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Vue.js 应用
+        const { createApp, ref, onMounted, computed } = Vue;
+        const { createRouter, createWebHistory } = VueRouter;
+
+        // 模拟数据（备用）
+        const mockProducts = [
+            {
+                id: 'mock-1',
+                name: '智能手机 Pro Max (模拟)',
+                description: '最新款智能手机，配备高清摄像头和强大处理器',
+                price: 4999.00,
+                category_name: '电子产品',
+                image_url: '',
+                stock: 50,
+                featured: true
+            },
+            {
+                id: 'mock-2',
+                name: '笔记本电脑 Ultra (模拟)',
+                description: '轻薄便携的高性能笔记本电脑',
+                price: 7999.00,
+                category_name: '电子产品',
+                image_url: '',
+                stock: 30,
+                featured: true
+            }
+        ];
+
+        // 首页组件 - 修复版
+        const HomePage = {
+            template: `
+                <div class="home">
+                    <div class="hero">
+                        <h1>欢迎来到优选商城</h1>
+                        <p>发现品质生活，享受购物乐趣</p>
+                        <router-link to="/products" class="btn btn-primary">开始购物</router-link>
+                    </div>
+                    
+                    <section class="featured-products">
+                        <h2>精选产品</h2>
+                        <div v-if="loading" class="loading">
+                            <p>加载精选产品中...</p>
+                        </div>
+                        <div v-else-if="featuredProducts.length > 0" class="products-grid">
+                            <div v-for="product in featuredProducts" :key="product.id" class="product-card">
+                                <div class="product-image"></div>
+                                <div class="product-info">
+                                    <h3 class="product-title">{{ product.name }}</h3>
+                                    <p class="product-description">{{ product.description }}</p>
+                                    <div class="product-price">¥{{ product.price.toFixed(2) }}</div>
+                                    <div style="background: #28a745; color: white; padding: 5px; border-radius: 3px; margin: 5px 0; font-size: 12px;">
+                                        🎯 {{ dataSource }}
+                                    </div>
+                                    <router-link :to="'/product/' + product.id" class="btn btn-primary">查看详情</router-link>
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else class="loading">
+                            <p>没有找到精选产品</p>
+                        </div>
+                    </section>
+                </div>
+            `,
+            setup() {
+                const featuredProducts = ref([]);
+                const loading = ref(true);
+                const dataSource = ref('未知');
+
+                onMounted(async () => {
+                    console.log('🏠 首页组件开始加载');
+                    loading.value = true;
+
+                    try {
+                        // 直接查询精选产品
+                        console.log('🔍 查询精选产品...');
+                        
+                        const { data, error } = await supabase
+                            .from('products')
+                            .select('*')
+                            .eq('featured', true)
+                            .limit(6);
+
+                        console.log('📊 精选产品查询结果:', { data, error });
+
+                        if (error) {
+                            console.error('❌ 精选产品查询错误:', error);
+                            featuredProducts.value = mockProducts.filter(p => p.featured);
+                            dataSource.value = '模拟数据 (查询错误)';
+                        } else if (data && data.length > 0) {
+                            console.log('✅ 使用真实精选产品:', data.length, '个');
+                            featuredProducts.value = data;
+                            dataSource.value = '真实 Supabase 数据';
+                        } else {
+                            console.log('⚠️ 没有精选产品，查询所有产品...');
+                            
+                            // 查询所有产品作为备用
+                            const { data: allData, error: allError } = await supabase
+                                .from('products')
+                                .select('*')
+                                .limit(6);
+
+                            console.log('📊 所有产品查询结果:', { data: allData, error: allError });
+
+                            if (!allError && allData && allData.length > 0) {
+                                console.log('✅ 使用所有产品:', allData.length, '个');
+                                featuredProducts.value = allData;
+                                dataSource.value = '所有产品数据 (备用)';
+                            } else {
+                                console.log('⚠️ 使用模拟数据');
+                                featuredProducts.value = mockProducts.filter(p => p.featured);
+                                dataSource.value = '模拟数据 (无数据库数据)';
+                            }
+                        }
+                    } catch (error) {
+                        console.error('❌ 加载异常:', error);
+                        featuredProducts.value = mockProducts.filter(p => p.featured);
+                        dataSource.value = '模拟数据 (异常)';
+                    } finally {
+                        loading.value = false;
+                        console.log('✅ 首页加载完成:', {
+                            产品数量: featuredProducts.value.length,
+                            数据源: dataSource.value
+                        });
+                    }
+                });
+
+                return {
+                    featuredProducts,
+                    loading,
+                    dataSource
+                };
+            }
+        };
+
+        // 产品列表页组件 - 简化版
+        const ProductsPage = {
+            template: `
+                <div class="products-page">
+                    <h1>产品列表</h1>
+                    <div class="products-grid" v-if="products.length > 0">
+                        <div v-for="product in products" :key="product.id" class="product-card">
+                            <div class="product-image"></div>
+                            <div class="product-info">
+                                <h3 class="product-title">{{ product.name }}</h3>
+                                <p class="product-description">{{ product.description }}</p>
+                                <div class="product-price">¥{{ product.price.toFixed(2) }}</div>
+                                <router-link :to="'/product/' + product.id" class="btn btn-primary">查看详情</router-link>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="loading">
+                        <p>加载产品中...</p>
+                    </div>
+                </div>
+            `,
+            setup() {
+                const products = ref([]);
+                const loading = ref(true);
+
+                onMounted(async () => {
+                    try {
+                        const { data, error } = await supabase
+                            .from('products')
+                            .select('*');
+
+                        if (error) {
+                            console.error('产品列表错误:', error);
+                            products.value = mockProducts;
+                        } else {
+                            products.value = data || [];
+                        }
+                    } catch (error) {
+                        console.error('产品列表异常:', error);
+                        products.value = mockProducts;
+                    } finally {
+                        loading.value = false;
+                    }
+                });
+
+                return { products, loading };
+            }
+        };
+
+        // 购物车页面
+        const CartPage = {
+            template: `
+                <div class="cart-page">
+                    <h1>购物车</h1>
+                    <div class="cart-items">
+                        <p>购物车功能开发中...</p>
+                    </div>
+                </div>
+            `,
+            setup() {
+                return {};
+            }
+        };
+
+        // 创建路由
+        const routes = [
+            { path: '/', component: HomePage },
+            { path: '/products', component: ProductsPage },
+            { path: '/cart', component: CartPage },
+            { path: '/product/:id', component: ProductsPage } // 临时重定向
+        ];
+
+        const router = createRouter({
+            history: createWebHistory(),
+            routes
+        });
+
+        // 创建应用
+        const app = createApp({
+            setup() {
+                return {};
+            }
+        });
+
+        app.use(router);
+        app.mount('#app');
+
+        console.log('✅ 修复版应用已启动');
+    </script>
+</body>
+</html>

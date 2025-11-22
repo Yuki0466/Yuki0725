@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最终测试 - 直接复现主应用逻辑</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .debug-info { 
+            position: fixed; top: 10px; right: 10px; 
+            background: white; border: 2px solid #007bff; 
+            padding: 15px; border-radius: 8px; 
+            max-width: 400px; z-index: 9999; 
+        }
+        .status { margin: 5px 0; padding: 5px; border-radius: 3px; }
+        .status.success { background: #d4edda; }
+        .status.error { background: #f8d7da; }
+        .status.info { background: #d1ecf1; }
+        main { margin-right: 420px; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="debug-info">
+            <h3>🔍 实时状态监控</h3>
+            <div id="statusContainer"></div>
+        </div>
+
+        <!-- 简化的导航栏 -->
+        <nav class="navbar">
+            <div class="nav-container">
+                <div class="nav-brand">
+                    <a href="#">优选商城 (最终测试)</a>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <div class="home">
+                <div class="hero">
+                    <h1>欢迎来到优选商城 (最终测试版)</h1>
+                    <p>发现品质生活，享受购物乐趣</p>
+                    <button @click="loadData" class="btn btn-primary">重新加载数据</button>
+                </div>
+                
+                <section class="featured-products">
+                    <h2>精选产品</h2>
+                    <div class="products-grid" v-if="products.length > 0">
+                        <div v-for="product in products" :key="product.id" class="product-card">
+                            <div class="product-image"></div>
+                            <div class="product-info">
+                                <h3 class="product-title">{{ product.name }}</h3>
+                                <p class="product-description">{{ product.description }}</p>
+                                <div class="product-price">¥{{ product.price.toFixed(2) }}</div>
+                                <div style="background: #28a745; color: white; padding: 5px; border-radius: 3px; margin: 5px 0;">
+                                    🎯 数据源: {{ dataSource }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="loading">
+                        <p>{{ loading ? '加载精选产品中...' : '没有找到产品' }}</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        // 与主应用完全相同的配置
+        const SUPABASE_URL = 'https://nysrxrlwrlcfrbhutwtd.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55c3J4cmx3cmxjZnJiaHV0d3RkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MTQ4MzgsImV4cCI6MjA3OTM5MDgzOH0.598J9S18JqKaqYP5e1lR_oKtly0pyhCzZ3FRJS0rwRI';
+        
+        const { createClient } = window.supabase;
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // 模拟数据（与主应用相同）
+        const mockProducts = [
+            {
+                id: 'mock-1',
+                name: '智能手机 Pro Max (模拟)',
+                description: '最新款智能手机，配备高清摄像头和强大处理器',
+                price: 4999.00,
+                featured: true
+            },
+            {
+                id: 'mock-2',
+                name: '笔记本电脑 Ultra (模拟)',
+                description: '轻薄便携的高性能笔记本电脑',
+                price: 7999.00,
+                featured: true
+            }
+        ];
+
+        function updateStatus(message, type = 'info') {
+            const container = document.getElementById('statusContainer');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        const app = createApp({
+            setup() {
+                const products = ref([]);
+                const loading = ref(true);
+                const dataSource = ref('未知');
+
+                const loadData = async () => {
+                    updateStatus('🔄 开始加载精选产品...', 'info');
+                    loading.value = true;
+
+                    try {
+                        // 与主应用完全相同的查询
+                        const { data, error } = await supabase
+                            .from('products')
+                            .select('*')
+                            .eq('featured', true)
+                            .limit(6);
+
+                        updateStatus(`📊 Supabase 查询完成: ${data?.length || 0} 个产品, 错误: ${error ? error.message : '无'}`, 'info');
+
+                        if (error) {
+                            updateStatus(`❌ Supabase 错误: ${error.message}`, 'error');
+                            products.value = mockProducts.filter(p => p.featured);
+                            dataSource.value = '模拟数据 (因错误)';
+                        } else if (data && data.length > 0) {
+                            updateStatus(`✅ 使用真实数据: ${data.length} 个精选产品`, 'success');
+                            products.value = data;
+                            dataSource.value = '真实 Supabase 数据';
+                            
+                            // 显示产品详情
+                            data.forEach((product, index) => {
+                                updateStatus(`产品${index + 1}: ${product.name}`, 'success');
+                            });
+                        } else {
+                            updateStatus('⚠️ 没有精选产品，尝试加载普通产品...', 'info');
+                            
+                            const { data: regularData, error: regularError } = await supabase
+                                .from('products')
+                                .select('*')
+                                .limit(6);
+                            
+                            updateStatus(`📊 普通产品查询: ${regularData?.length || 0} 个产品, 错误: ${regularError ? regularError.message : '无'}`, 'info');
+                            
+                            if (!regularError && regularData && regularData.length > 0) {
+                                updateStatus(`✅ 使用普通产品: ${regularData.length} 个产品`, 'success');
+                                products.value = regularData;
+                                dataSource.value = '普通产品数据 (备用)';
+                            } else {
+                                updateStatus('⚠️ 使用模拟数据', 'error');
+                                products.value = mockProducts.filter(p => p.featured);
+                                dataSource.value = '模拟数据 (无数据库数据)';
+                            }
+                        }
+                    } catch (error) {
+                        updateStatus(`❌ 加载异常: ${error.message}`, 'error');
+                        products.value = mockProducts.filter(p => p.featured);
+                        dataSource.value = '模拟数据 (因异常)';
+                    } finally {
+                        loading.value = false;
+                        updateStatus(`✅ 加载完成: ${products.value.length} 个产品, 数据源: ${dataSource.value}`, 'success');
+                    }
+                };
+
+                onMounted(() => {
+                    updateStatus('🚀 组件已挂载，开始自动加载...', 'info');
+                    setTimeout(loadData, 1000);
+                });
+
+                return {
+                    products,
+                    loading,
+                    dataSource,
+                    loadData
+                };
+            }
+        });
+
+        app.mount('#app');
+        updateStatus('✅ Vue 应用已挂载', 'success');
+    </script>
+</body>
+</html>

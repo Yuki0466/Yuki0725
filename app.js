@@ -96,10 +96,11 @@ const HomePage = {
         const loading = ref(true);
 
         onMounted(async () => {
+            console.log('🔄 开始加载精选产品...');
+            loading.value = true;
+
             try {
-                console.log('🔄 开始加载精选产品...');
-                
-                // 从 Supabase 获取数据
+                // 直接查询精选产品
                 const { data, error } = await supabase
                     .from('products')
                     .select('*')
@@ -114,20 +115,22 @@ const HomePage = {
                 } else if (data && data.length > 0) {
                     console.log('✅ 使用真实精选产品数据:', data.length, '个产品');
                     featuredProducts.value = data;
+                    loading.value = false;
+                    return; // 早期返回，不再查询其他数据
                 } else {
-                    console.warn('⚠️ 没有精选产品，尝试加载普通产品...');
+                    console.warn('⚠️ 没有精选产品，查询所有产品...');
                     
-                    // 如果没有精选产品，加载一些普通产品
-                    const { data: regularData, error: regularError } = await supabase
+                    // 查询所有产品作为备用
+                    const { data: allData, error: allError } = await supabase
                         .from('products')
                         .select('*')
                         .limit(6);
                     
-                    if (!regularError && regularData && regularData.length > 0) {
-                        console.log('✅ 使用普通产品数据作为精选展示:', regularData.length, '个产品');
-                        featuredProducts.value = regularData;
+                    if (!allError && allData && allData.length > 0) {
+                        console.log('✅ 使用所有产品数据:', allData.length, '个产品');
+                        featuredProducts.value = allData;
                     } else {
-                        console.warn('⚠️ 数据库中没有任何产品，使用模拟数据');
+                        console.warn('⚠️ 数据库中没有产品，使用模拟数据');
                         featuredProducts.value = mockProducts.filter(p => p.featured);
                     }
                 }
@@ -136,6 +139,7 @@ const HomePage = {
                 featuredProducts.value = mockProducts.filter(p => p.featured);
             } finally {
                 loading.value = false;
+                console.log('🏁 首页加载完成:', featuredProducts.value.length, '个产品');
             }
         });
 
