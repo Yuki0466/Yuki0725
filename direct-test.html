@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直接测试 - 与主应用相同的逻辑</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 20px; margin: 10px 0; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>🧪 直接测试 - 复制主应用逻辑</h1>
+    
+    <button onclick="testExactlyLikeMainApp()">完全按照主应用的逻辑测试</button>
+    <button onclick="clearResults()">清空结果</button>
+    
+    <div id="results"></div>
+
+    <script>
+        // 与主应用完全相同的配置
+        const SUPABASE_URL = 'https://nysrxrlwrlcfrbhutwtd.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55c3J4cmx3cmxjZnJiaHV0d3RkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MTQ4MzgsImV4cCI6MjA3OTM5MDgzOH0.598J9S18JqKaqYP5e1lR_oKtly0pyhCzZ3FRJS0rwRI';
+        
+        // 与主应用完全相同的客户端创建
+        const { createClient } = window.supabase;
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        const results = document.getElementById('results');
+
+        function addResult(title, message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<strong>${title}</strong><br>${message}`;
+            results.appendChild(div);
+        }
+
+        function addJsonResult(title, data, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<strong>${title}</strong><pre>${JSON.stringify(data, null, 2)}</pre>`;
+            results.appendChild(div);
+        }
+
+        async function testExactlyLikeMainApp() {
+            addResult('🔄 开始测试', '使用与主应用完全相同的逻辑...', 'info');
+            
+            try {
+                addResult('1️⃣ 步骤 1', '创建 Supabase 客户端', 'info');
+                
+                // 验证客户端
+                if (!supabase) {
+                    throw new Error('Supabase 客户端创建失败');
+                }
+                
+                addResult('✅ 步骤 1', '客户端创建成功', 'success');
+
+                addResult('2️⃣ 步骤 2', '查询精选产品 (featured=true)...', 'info');
+                
+                // 与主应用完全相同的查询
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('*')
+                    .eq('featured', true)
+                    .limit(6);
+
+                console.log('与主应用相同的查询结果:', { data, error });
+                addJsonResult('查询结果', { data, error }, 'info');
+
+                if (error) {
+                    addResult('❌ 步骤 2', `精选产品查询失败: ${error.message}`, 'error');
+                    
+                    // 如果精选产品失败，尝试查询所有产品（像主应用的备选逻辑）
+                    addResult('3️⃣ 步骤 3', '尝试查询所有产品作为备选...', 'info');
+                    
+                    const { data: allData, error: allError } = await supabase
+                        .from('products')
+                        .select('*')
+                        .limit(6);
+
+                    addJsonResult('所有产品查询结果', { data: allData, error: allError }, 'info');
+
+                    if (allError) {
+                        addResult('❌ 步骤 3', `所有产品查询也失败: ${allError.message}`, 'error');
+                    } else if (allData && allData.length > 0) {
+                        addResult(`✅ 步骤 3`, `找到 ${allData.length} 个普通产品，可以替代精选产品`, 'success');
+                        addJsonResult('可用的产品数据', allData, 'success');
+                    } else {
+                        addResult('⚠️ 步骤 3', '数据库中没有任何产品数据', 'error');
+                    }
+                    
+                } else if (data && data.length > 0) {
+                    addResult(`✅ 步骤 2`, `完美！找到 ${data.length} 个精选产品`, 'success');
+                    addJsonResult('精选产品数据', data, 'success');
+                } else {
+                    addResult('⚠️ 步骤 2', '精选产品查询成功但返回空数据', 'warning');
+                }
+
+                addResult('4️⃣ 步骤 4', '测试分类数据...', 'info');
+                
+                const { data: catData, error: catError } = await supabase
+                    .from('categories')
+                    .select('*')
+                    .limit(5);
+
+                if (catError) {
+                    addResult('❌ 步骤 4', `分类查询失败: ${catError.message}`, 'error');
+                } else if (catData && catData.length > 0) {
+                    addResult(`✅ 步骤 4`, `找到 ${catData.length} 个分类`, 'success');
+                    addJsonResult('分类数据', catData, 'info');
+                } else {
+                    addResult('⚠️ 步骤 4', '分类数据为空', 'warning');
+                }
+
+            } catch (error) {
+                addResult('❌ 测试异常', `测试过程中发生异常: ${error.message}`, 'error');
+                console.error('测试异常:', error);
+            }
+        }
+
+        function clearResults() {
+            results.innerHTML = '';
+        }
+
+        // 页面加载时自动运行测试
+        window.onload = () => {
+            setTimeout(testExactlyLikeMainApp, 1000);
+        };
+    </script>
+</body>
+</html>

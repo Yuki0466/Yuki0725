@@ -71,20 +71,27 @@
             try {
                 addResult('🔌 测试 1: 基础连接', '正在测试 Supabase 连接...', 'info');
                 
-                // 测试基础连接 - 尝试获取版本信息
+                // 测试基础连接 - 尝试访问一个已知存在的表（即使是空的）
                 const { data, error } = await supabase
-                    .rpc('version'); // 这可能失败，但能测试连接
+                    .from('products')
+                    .select('count')
+                    .limit(1);
 
-                if (error && error.code !== 'PGRST116') { // PGRST116 是函数不存在的错误，这表示连接成功
-                    throw error;
+                if (error) {
+                    if (error.code === 'PGRST116') {
+                        addResult('❌ 测试 1: 基础连接', 'products 表不存在！请先创建数据库表', 'error');
+                    } else {
+                        addResult('❌ 测试 1: 基础连接', `连接失败: ${error.message}`, 'error');
+                    }
+                    return false;
                 }
                 
                 addResult('✅ 测试 1: 基础连接', '连接成功！Supabase 服务可访问', 'success');
+                return true;
             } catch (error) {
                 addResult('❌ 测试 1: 基础连接', `连接失败: ${error.message}`, 'error');
                 return false;
             }
-            return true;
         }
 
         async function testTablesExist() {
