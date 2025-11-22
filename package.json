@@ -1,0 +1,24 @@
+{
+  "name": "ecommerce-website",
+  "version": "1.0.0",
+  "description": "电商展示网站 - 使用 Supabase 和 Netlify",
+  "main": "index.js",
+  "scripts": {
+    "start": "netlify dev",
+    "build": "echo 'Build complete'",
+    "dev": "netlify dev"
+  },
+  "keywords": ["ecommerce", "supabase", "netlify", "vue"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.4",
+    "vue": "^3.3.8",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.5.0",
+    "netlify-cli": "^17.0.0",
+    "vite": "^5.0.0"
+  }
+}
