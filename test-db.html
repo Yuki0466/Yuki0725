@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库连接测试</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Supabase 数据库连接测试</h1>
+    <div id="status"></div>
+    <div id="results"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://nysrxrlwrlcfrbhutwtd.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55c3J4cmx3cmxjZnJiaHV0d3RkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MTQ4MzgsImV4cCI6MjA3OTM5MDgzOH0.598J9S18JqKaqYP5e1lR_oKtly0pyhCzZ3FRJS0rwRI';
+        
+        const { createClient } = window.supabase;
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const status = document.getElementById('status');
+        const results = document.getElementById('results');
+
+        async function testConnection() {
+            status.innerHTML = '<p>正在测试连接...</p>';
+            
+            try {
+                // 测试连接 - 获取分类表
+                const { data: categories, error: categoriesError } = await supabase
+                    .from('categories')
+                    .select('*')
+                    .limit(5);
+                
+                if (categoriesError) {
+                    status.innerHTML = `<p style="color: red;">❌ 分类表错误: ${categoriesError.message}</p>`;
+                } else {
+                    status.innerHTML = '<p style="color: green;">✅ 数据库连接成功！</p>';
+                    results.innerHTML += '<h3>分类数据：</h3><pre>' + JSON.stringify(categories, null, 2) + '</pre>';
+                }
+
+                // 测试产品表
+                const { data: products, error: productsError } = await supabase
+                    .from('products')
+                    .select('*')
+                    .limit(5);
+                
+                if (productsError) {
+                    status.innerHTML += `<p style="color: red;">❌ 产品表错误: ${productsError.message}</p>`;
+                } else {
+                    results.innerHTML += '<h3>产品数据：</h3><pre>' + JSON.stringify(products, null, 2) + '</pre>';
+                }
+
+                // 如果数据为空，显示创建表的提示
+                if ((!categories || categories.length === 0) && (!products || products.length === 0)) {
+                    status.innerHTML += '<p style="color: orange;">⚠️ 数据库表为空，请执行 SQL 脚本创建示例数据</p>';
+                    results.innerHTML += '<h3>下一步操作：</h3>';
+                    results.innerHTML += '<p>1. 打开 Supabase 控制台</p>';
+                    results.innerHTML += '<p>2. 进入 SQL Editor</p>';
+                    results.innerHTML += '<p>3. 复制并执行 supabase-schema.sql 文件中的内容</p>';
+                }
+
+            } catch (error) {
+                status.innerHTML = `<p style="color: red;">❌ 连接失败: ${error.message}</p>`;
+            }
+        }
+
+        testConnection();
+    </script>
+</body>
+</html>

@@ -3,8 +3,8 @@ const { createApp, ref, onMounted, computed } = Vue;
 const { createRouter, createWebHistory } = VueRouter;
 
 // Supabase 配置
-const SUPABASE_URL = 'https://your-project-id.supabase.co';
-const SUPABASE_ANON_KEY = 'your-anon-key-here';
+const SUPABASE_URL = 'https://nysrxrlwrlcfrbhutwtd.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55c3J4cmx3cmxjZnJiaHV0d3RkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MTQ4MzgsImV4cCI6MjA3OTM5MDgzOH0.598J9S18JqKaqYP5e1lR_oKtly0pyhCzZ3FRJS0rwRI';
 
 // 创建 Supabase 客户端
 const { createClient } = window.supabase;
@@ -97,21 +97,28 @@ const HomePage = {
 
         onMounted(async () => {
             try {
-                // 尝试从 Supabase 获取数据
+                // 从 Supabase 获取数据
                 const { data, error } = await supabase
                     .from('products')
                     .select('*')
                     .eq('featured', true)
                     .limit(6);
 
+                console.log('Supabase 查询结果:', { data, error });
+
                 if (error) {
-                    console.warn('无法连接 Supabase，使用模拟数据:', error.message);
+                    console.error('Supabase 错误:', error);
+                    // 只有在真正的连接错误时才使用模拟数据
                     featuredProducts.value = mockProducts.filter(p => p.featured);
+                } else if (data && data.length > 0) {
+                    console.log('使用真实数据:', data);
+                    featuredProducts.value = data;
                 } else {
-                    featuredProducts.value = data || [];
+                    console.log('Supabase 返回空数据，使用模拟数据');
+                    featuredProducts.value = mockProducts.filter(p => p.featured);
                 }
             } catch (error) {
-                console.warn('使用模拟数据:', error.message);
+                console.error('加载产品时发生异常:', error);
                 featuredProducts.value = mockProducts.filter(p => p.featured);
             } finally {
                 loading.value = false;
@@ -186,14 +193,20 @@ const ProductsPage = {
                     .from('products')
                     .select('*');
 
+                console.log('产品查询结果:', { data, error });
+
                 if (error) {
-                    console.warn('使用模拟产品数据:', error.message);
+                    console.error('产品加载错误:', error);
                     products.value = mockProducts;
+                } else if (data && data.length > 0) {
+                    console.log('使用真实产品数据:', data);
+                    products.value = data;
                 } else {
-                    products.value = data || [];
+                    console.log('产品数据为空，使用模拟数据');
+                    products.value = mockProducts;
                 }
             } catch (error) {
-                console.warn('使用模拟产品数据:', error.message);
+                console.error('产品加载异常:', error);
                 products.value = mockProducts;
             }
         };
@@ -204,14 +217,20 @@ const ProductsPage = {
                     .from('categories')
                     .select('*');
 
+                console.log('分类查询结果:', { data, error });
+
                 if (error) {
-                    console.warn('使用模拟分类数据:', error.message);
+                    console.error('分类加载错误:', error);
                     categories.value = mockCategories;
+                } else if (data && data.length > 0) {
+                    console.log('使用真实分类数据:', data);
+                    categories.value = data;
                 } else {
-                    categories.value = data || [];
+                    console.log('分类数据为空，使用模拟数据');
+                    categories.value = mockCategories;
                 }
             } catch (error) {
-                console.warn('使用模拟分类数据:', error.message);
+                console.error('分类加载异常:', error);
                 categories.value = mockCategories;
             }
         };
@@ -284,14 +303,20 @@ const ProductDetailPage = {
                     .eq('id', productId)
                     .single();
 
+                console.log('产品详情查询结果:', { productId, data, error });
+
                 if (error) {
-                    console.warn('使用模拟产品数据:', error.message);
+                    console.error('产品详情加载错误:', error);
                     product.value = mockProducts.find(p => p.id === productId);
-                } else {
+                } else if (data) {
+                    console.log('使用真实产品详情:', data);
                     product.value = data;
+                } else {
+                    console.log('产品详情不存在，使用模拟数据');
+                    product.value = mockProducts.find(p => p.id === productId);
                 }
             } catch (error) {
-                console.warn('使用模拟产品数据:', error.message);
+                console.error('产品详情加载异常:', error);
                 product.value = mockProducts.find(p => p.id === productId);
             } finally {
                 loading.value = false;
